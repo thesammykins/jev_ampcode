@@ -4,8 +4,6 @@ A small advisory tool for comparing **supplied alternatives against supplied evi
 Jev returns typed choices and probabilities, not research, explanations, or permission
 to act. This is a V1 pilot, not an Oracle replacement or a correctness gate.
 
-Upstream: https://github.com/thesammykins/jev_ampcode
-
 ## What to use it for
 
 - Compare implementation approaches after inspecting relevant code and constraints.
