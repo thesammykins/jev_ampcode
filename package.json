@@ -1,0 +1,15 @@
+{
+  "name": "jev-ampcode",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "eval": "bun evals/run.ts"
+  },
+  "devDependencies": {
+    "@ampcode/plugin": "0.0.0-20260917001655-g68a7530",
+    "@types/bun": "1.4.2",
+    "typescript": "7.0.2"
+  }
+}
