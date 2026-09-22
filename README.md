@@ -4,6 +4,10 @@ A small advisory tool for comparing **supplied alternatives against supplied evi
 Jev returns typed choices and probabilities, not research, explanations, or permission
 to act. This is a V1 pilot, not an Oracle replacement or a correctness gate.
 
+If my Jev plugin for Amp is useful to you, you can support its development.
+
+<a href="https://ko-fi.com/sammykins/tip"><img src="docs/images/kofi-support.avif" alt="Support Jev plugin for Ampcode on Ko-fi" height="32"></a>
+
 ## What to use it for
 
 - Compare implementation approaches after inspecting relevant code and constraints.
