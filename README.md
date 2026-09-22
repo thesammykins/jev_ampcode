@@ -6,7 +6,7 @@ to act. This is a V1 pilot, not an Oracle replacement or a correctness gate.
 
 If my Jev plugin for Amp is useful to you, you can support its development.
 
-<a href="https://ko-fi.com/sammykins/tip"><img src="docs/images/kofi-support.avif" alt="Support Jev plugin for Ampcode on Ko-fi" height="32"></a>
+<a href="https://ko-fi.com/sammykins/tip"><img src="https://cdn.prod.website-files.com/5c14e387dab576fe667689cf/670f5a01c01ea9191809398c_support_me_on_kofi_blue.avif" alt="Support Jev plugin for Ampcode on Ko-fi" height="32"></a>
 
 ## What to use it for
 
