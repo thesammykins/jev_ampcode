@@ -119,6 +119,37 @@ test('bounded comparisons use native routing, preserve requirement disagreements
   expect(h.requests).toHaveLength(1)
 })
 
+test('structured evidence separates diagnostics from hard blockers without granting authority', async () => {
+  const h = harness()
+  const original = h.api.ai.decide
+  h.api.ai.decide = async request => {
+    const response = await original(request)
+    return { ...response, answers: { ...response.answers,
+      check_1_0: choice('supported', 1, ['supported', 'contradicted', 'unknown']),
+      diagnostic_0_0: choice('supported', 1, ['supported', 'contradicted', 'unknown']),
+      diagnostic_1_0: choice('contradicted', 1, ['supported', 'contradicted', 'unknown']) } }
+  }
+  const input = { decision: 'Choose recovery', whyNow: 'Choose a local implementation', baseline: 'undecided',
+    evidence: { authority: 'Local implementation only; deployment needs approval.', observations: [{ source: 'test', finding: 'Both paths preserve one record.' }], assumptions: [], unknowns: [] },
+    priorities: 'Prefer replay when safe.', candidates: [{ id: 'lookup', description: 'Look up record' }, { id: 'replay', description: 'Replay same key' }],
+    requirements: ['No duplicate records'], diagnostics: ['No second POST'] }
+  const output = JSON.parse(await h.tools.jev_evaluate.execute(input, h.context))
+  expect(output.warnings).toEqual([])
+  expect(output.nextStep).toEqual({ kind: 'candidate_advice', candidate: 'replay', action: 'Replay same key', unresolvedRequirements: [], authorizationGranted: false })
+  expect(output.diagnostics[1].answer.choice).toBe('contradicted')
+  expect(h.requests[0].state.evidence).toEqual(input.evidence)
+  const uncertain = await original({})
+  h.api.ai.decide = async () => uncertain
+  const blocked = JSON.parse(await h.tools.jev_evaluate.execute({ ...input, diagnostics: [] }, h.context))
+  expect(blocked.nextStep.kind).toBe('review_constraints')
+  expect(blocked.nextStep.unresolvedRequirements).toEqual([{ requirement: 'No duplicate records', judgment: 'unknown' }])
+  for (const invalid of [
+    { ...input, diagnostics: ['A', 'B', 'C'] },
+    { ...input, evidence: { ...input.evidence, unknowns: [{ fact: 'Limit', owner: 'model' }] } },
+    { ...input, evidence: { ...input.evidence, observations: [{ source: 'test', finding: 'x', permission: true }] } },
+  ]) await expect(h.tools.jev_evaluate.execute(invalid, h.context)).rejects.toThrow()
+})
+
 test('original user instructions survive pagination, assistant chatter and compaction', async () => {
   for (const count of [20, 21, 41]) {
     const h = harness('ask_user', 1)

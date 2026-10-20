@@ -12,7 +12,7 @@ export default function (amp: PluginAPI) {
   amp.registerTool({
     name: 'jev_evaluate',
     title: 'Decide from available context',
-    description: `${guidance} Supply 2–6 alternatives, known facts, explicit priorities and any specific requirements. Uses Amp's native Jev decision model. Returns probabilities and independent requirement checks, not reasoning or proof. ask_user means missing user-only context; investigate means gather evidence yourself. Send only necessary non-secret context.`,
+    description: `${guidance} Prefer structured evidence with existing authority, source-labelled observations, assumptions and unknowns. Requirements are hard constraints; priorities are ordered preferences among eligible candidates. Put optional properties in diagnostics, not requirements. Supply 2–6 concrete actions and at most three requirements plus diagnostics combined. Uses Amp's native Jev decision model. Returns advisory nextStep, probabilities and independent checks, not reasoning or permission. ask_user means missing user-only context; investigate means gather evidence yourself. Send only necessary non-secret context.`,
     inputSchema,
     async execute(value, ctx) {
       const input = parseInput(value)
@@ -22,11 +22,20 @@ export default function (amp: PluginAPI) {
       const checks = input.candidates.flatMap((_, i) => input.requirements.map((__, j) => ({
         candidate: `option_${i}`, requirement: j, answer: result.answers[`check_${i}_${j}`],
       })))
+      const diagnostics = input.candidates.flatMap((_, i) => (input.diagnostics ?? []).map((property, j) => ({
+        candidate: `option_${i}`, property, answer: result.answers[`diagnostic_${i}_${j}`],
+      })))
+      const selected = input.candidates.find((_, i) => recommendation.choice === `option_${i}`)
+      const blockers = checks.filter(c => c.candidate === recommendation.choice && c.answer.choice !== 'supported')
       return JSON.stringify({
         source: 'decision_model', advisory: ADVISORY, model: result.model,
         candidates: input.candidates.map((c, i) => ({ selection: `option_${i}`, id: c.id })),
-        recommendation, checks,
-        warnings: checks.some(c => c.candidate === recommendation.choice && c.answer.choice !== 'supported')
+        recommendation, checks, diagnostics,
+        nextStep: { kind: selected ? (blockers.length ? 'review_constraints' : 'candidate_advice') : recommendation.choice,
+          ...(selected ? { candidate: selected.id, action: selected.description } : {}),
+          unresolvedRequirements: blockers.map(c => ({ requirement: input.requirements[c.requirement], judgment: c.answer.choice })),
+          authorizationGranted: false },
+        warnings: blockers.length
           ? ['Requirement checks disagree or lack evidence. Inspect or clarify before proceeding.'] : [],
       })
     },

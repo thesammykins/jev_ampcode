@@ -102,26 +102,52 @@ a pre-advice `baseline` candidate ID (or `undecided`), alternatives, and require
 Baseline and whyNow are visible in the tool call but are not sent to Jev.
 Within evidence, distinguish user constraints, source-labelled inspected observations,
 assumptions and missing facts. Technical observations do not establish permission.
+Prefer the structured form below. `authority` records existing scope; it is not
+authenticated approval. Unknowns owned by `agent` are inspectable technical facts;
+those owned by `human` require private context or approval. Keep the serialized
+evidence under 12,000 characters.
+
+`requirements` are hard constraints. `priorities` are preferences, most important
+first, among eligible candidates. `diagnostics` assess optional properties without
+making them vetoes or ranking preferences. Requirements and diagnostics together
+may contain at most three properties (at most 19 native questions with six candidates).
+Existing text evidence without a diagnostics field retains the published recommendation
+policy; structured evidence or an explicit diagnostics array opts into the ordered policy.
 
 ```json
 {
   "decision": "Choose the report status update channel.",
   "whyNow": "Both paths have been measured; the choice changes dependencies.",
-  "evidence": "Polling updates within 30 seconds. Managed push updates within one second but adds a vendor bill.",
+  "evidence": {
+    "authority": "Recommend a local implementation; do not purchase a service.",
+    "observations": [
+      { "source": "Timing checks", "finding": "Polling updates within 30 seconds; managed push within one second." },
+      { "source": "Service inventory and pricing", "finding": "Polling uses the existing endpoint; managed push adds a vendor bill." }
+    ],
+    "assumptions": [],
+    "unknowns": []
+  },
   "priorities": "The user accepts 30 seconds and prioritizes no new service.",
   "baseline": "poll",
   "candidates": [
     { "id": "poll", "description": "Poll the existing authenticated endpoint." },
     { "id": "push", "description": "Add the managed push service." }
   ],
-  "requirements": ["No new paid service is needed."]
+  "requirements": ["No new paid service is needed."],
+  "diagnostics": ["Updates arrive within one second."]
 }
 ```
 
 The response maps `option_0`, `option_1`, etc. to candidate IDs. The recommendation
 includes probabilities for each option plus `ask_user`, `investigate`, and `none`.
 Each requirement gets independent supported/contradicted/unknown judgments for
-each candidate. Disagreement on the recommendation produces a warning.
+each candidate. A selected candidate with a non-supported hard requirement produces
+a warning and `nextStep.kind: "review_constraints"`, listing those requirements.
+Otherwise it returns `candidate_advice` with the candidate ID and supplied action.
+Deferrals return `ask_user`, `investigate`, or `none` (repair the options). Diagnostic
+results remain visible but do not trigger hard-constraint warnings. No new rationale
+is generated. `nextStep.authorizationGranted` is always false; advice never grants
+permission, even when checks agree. Unknowns remain model judgments, not proven facts.
 
 No warning is not proof of correctness. Do not average away a hard constraint or
 translate probability into “chance the implementation succeeds.” Verify the action.
@@ -210,6 +236,11 @@ Tests cover advice labeling, option mapping, routing and acceptability threshold
 boundaries, human fallback, investigation, context limits, provider failure, and
 requirement disagreement, including full-history pagination and export fallback.
 Mocked probabilities verify control flow, not model quality.
+
+The local [structured-framing comparison](evals/framing/RESULTS.md) retains all
+24 native responses and an offline replay. Structured framing matched the baseline
+on preferred selections (7/8), removed a misleading diagnostic warning, and did
+not resolve the observed retry and API-behavior errors. It is not release proof.
 
 `evals/host-smoke.ts` is an opt-in Amp runtime harness for one synthetic native
 comparison. It needs an accessible real thread ID and spends inference credits.
