@@ -5,14 +5,14 @@
     "": {
       "name": "jev-amp-prototype",
       "devDependencies": {
-        "@ampcode/plugin": "0.0.0-20260917001655-g68a7530",
+        "@ampcode/plugin": "0.0.0-20261020001645-gf9bc6c0",
         "@types/bun": "1.4.2",
         "typescript": "7.0.2",
       },
     },
   },
   "packages": {
-    "@ampcode/plugin": ["@ampcode/plugin@0.0.0-20260917001655-g68a7530", "", {}, "sha512-aG8zcl/Czl3dJQG8Oxyr6hWO9g7v7CpXGTh1UQnvj8iFEiJsTRmJ+moVbW00rbejG/cTSnmARHNa7/8eyWYbiQ=="],
+    "@ampcode/plugin": ["@ampcode/plugin@0.0.0-20261020001645-gf9bc6c0", "", {}, "sha512-OTBE52+TCP0Fyfqx2UPVaPPZnHuxw4lIBn0kF6yHFPFZj8pRvfiZdkSfXDmk3o5Bd5+xrBnDsZy7lMw3p3ki0Q=="],
 
     "@types/bun": ["@types/bun@1.4.2", "", { "dependencies": { "bun-types": "1.4.2" } }, "sha512-GimotNn7+ZV0uVArItBbriZsR1oNf0+WTzPkdcFrzShI7k2norL0uzEaJT8T33dWr7O/c9ZDuAFQrctKCi72oQ=="],
 

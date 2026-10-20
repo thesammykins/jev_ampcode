@@ -8,7 +8,7 @@
     "eval": "bun evals/run.ts"
   },
   "devDependencies": {
-    "@ampcode/plugin": "0.0.0-20260917001655-g68a7530",
+    "@ampcode/plugin": "0.0.0-20261020001645-gf9bc6c0",
     "@types/bun": "1.4.2",
     "typescript": "7.0.2"
   }

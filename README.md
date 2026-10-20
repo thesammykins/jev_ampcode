@@ -1,99 +1,98 @@
 # Jev for Amp
 
-A small advisory tool for comparing **supplied alternatives against supplied evidence**.
-Jev returns typed choices and probabilities, not research, explanations, or permission
-to act. This is a V1 pilot, not an Oracle replacement or a correctness gate.
+Bounded decisions and routine question routing using Amp's native
+[`amp.ai.decide(...)`](https://ampcode.com/docs/customize/decision-models) API.
+Jev returns typed choices and probabilities, not research, explanations, proof,
+or permission to act.
 
 If my Jev plugin for Amp is useful to you, you can support its development.
 
 <a href="https://ko-fi.com/sammykins/tip"><img src="https://cdn.prod.website-files.com/5c14e387dab576fe667689cf/670f5a01c01ea9191809398c_support_me_on_kofi_blue.avif" alt="Support Jev plugin for Ampcode on Ko-fi" height="32"></a>
 
-## What to use it for
+## What it does
 
-- Compare implementation approaches after inspecting relevant code and constraints.
-- Compare product or workflow options when the user's priorities are already known.
-- Choose between evidence-gathering actions that resolve a concrete uncertainty.
+- **`jev_evaluate`** compares 2–6 supplied alternatives against evidence, stated
+  priorities, and up to three independent requirements.
+- An **`agent.start` hook** encourages the agent to resolve routine choices from
+  available context, investigating technical facts instead of asking the user.
+- A **`tool.call` hook** intercepts `ask_user_choice`. Routine, reversible choices
+  supported by user context can return clearly labeled model advice. Missing
+  technical evidence redirects the agent to investigation. Missing consequential
+  user-only context, explicit approvals, and explicit requests to personally answer
+  questions retain the original human dialog.
 
-Do not use it for routine choices, reassurance, open-ended research, generating
-missing designs, guessing what a user will authorize, or proving a system safe.
-Inspect sources, run tests, ask the user, or use a reasoning model for those tasks.
-One call per unchanged decision; do not repeat calls to obtain endorsement.
-This is agent guidance, not a technical quota or an automatic usage gate.
+The built-in question tool is not removed. Its normal usage restrictions still
+apply. Uncertainty, provider/context errors, oversized or absent user context,
+and no suitable offered option also retain the dialog.
 
-## Installation and credentials
+Automatic answers require both routing and selection probability **≥0.90**.
+These are initial thresholds, not calibrated safety guarantees. The model can
+misclassify questions. Synthesized answers contain `source: "decision_model"`
+and `userAnswered: false`; they are **never user consent**. Existing permission
+and approval rules remain mandatory. This plugin is not an authorization boundary.
 
-Requires Amp with directory-plugin support and its Bun plugin runtime. Development
-was checked on Linux/x64 with Bun 1.3.10 and the pinned Amp API types in `package.json`.
+Make obvious reversible choices directly. Use Jev for a bounded unresolved choice,
+not reassurance, open-ended research, inventing preferences, or correctness proof.
+Do not repeat unchanged questions to obtain endorsement.
+
+## Migration from the direct TypeSafe API pilot
+
+This replaces the old credential-based plugin rather than adding a second tool.
+
+- No `JEV_KEY` or `TYPESAFE_API_KEY` is needed by the installed plugin. Requests
+  use Amp's thread-scoped provider routing and default TypeSafe Jev model.
+- `jev.model` no longer configures the plugin. Amp resolves its default Jev version;
+  the exact responding model is returned. There is no cross-provider fallback.
+- The `jev_evaluate` input schema, candidate mappings, recommendation and requirement
+  checks remain. Direct-provider `usage` and `elapsedMs` fields are no longer returned.
+- Automatic question routing and conversation reading are **new behavior**. Review
+  this before updating an existing installation that was advisory-tool-only.
+- No private capture companion or `jev_record_outcome` tool is included.
+
+Old credentials are not read, changed, or deleted by the plugin. Do not install
+this alongside another plugin registering `jev_evaluate`.
+
+## Installation
+
+Requires a current Amp release supporting `amp.ai.decide`, `thread.messages`, and
+the `tool.call` synthesized-result API. Development types are pinned in `package.json`.
 Only **`index.ts` and `decision.ts`** are needed at runtime; there are no runtime
-package dependencies. Do not install the entire checkout as loose plugin files.
-
-Use Amp's native secrets UI to add **`JEV_KEY`** to the scope available to the target
-orb/project. The plugin reads the environment variable Amp injects into its executor.
-The current plugin API exposes no separate secret-fetch method. After adding or
-changing the secret in an existing orb, run `amp orb restart-processes`, then reload
-the plugin if needed. Verify availability without printing the value:
-
-```sh
-test -n "$JEV_KEY" && echo 'JEV_KEY available' || echo 'JEV_KEY missing'
-```
-
-The fallback is `TYPESAFE_API_KEY` in the executor's environment. A local CLI/runner
-must receive the variable through its own launch environment; do not assume orb
-secrets synchronize to a local machine. Restart that client after updating its
-environment. `JEV_KEY` takes precedence when both are set.
-
-**Never paste a key into a tool argument, chat, source file, `.env` in this repository,
-or Amp plugin settings.** No plaintext `jev.apiKey` setting is supported. If a key
-was exposed, rotate it through your provider. The plugin blocks its configured token
-when found verbatim in input, but this is not a general secret scanner: sanitize
-all project context yourself.
+package dependencies. A GitHub checkout is source, not an automatically installed
+global Amp plugin.
 
 ### Copy this prompt into Amp to install
 
 ```text
-Install the Jev advisory plugin from https://github.com/thesammykins/jev_ampcode
-for this project only. Load Amp's building-plugins skill and inspect the source
-and current plugin API before installing. Clone outside .amp/plugins, choose and
-record the reviewed Git revision, and run bun install --frozen-lockfile,
-bun run typecheck, and bun test. Do not overwrite an existing Jev installation
-without showing me what differs.
+Install the native Jev plugin from https://github.com/thesammykins/jev_ampcode
+for this project only. Load building-plugins and inspect the source and current
+plugin API. Clone outside .amp/plugins, record the reviewed revision, and run
+bun install --frozen-lockfile, bun run typecheck, and bun test.
 
-Copy only index.ts and decision.ts into this project's .amp/plugins/jev/
-directory, preserving their relative imports. Do not copy tests, evals, captures,
-or development helpers. Use load_plugin if supported, or tell me how to reload
-Amp plugins. Confirm that jev_evaluate is the only tool this plugin registers.
+Copy only index.ts and decision.ts into .amp/plugins/jev/, preserving imports.
+Do not overwrite an existing installation without showing me what differs.
+Do not copy tests, evals, or private development helpers. Reload the plugin using
+Amp's supported mechanism. Confirm jev_evaluate is its only registered tool and
+that its hooks implement automatic routine-question routing with human fallback.
 
-Use the existing JEV_KEY secret from Amp's native secrets environment. Check only
-whether it is present, never print or read its value back to me. If absent, ask
-me to add it in Amp's secrets UI in the correct scope. In an orb, refresh with
-amp orb restart-processes after I add it. Outside an orb, explain that JEV_KEY
-or TYPESAFE_API_KEY must be supplied to the client's environment securely.
-Do not persist the token in settings, files, shell history, commands, or tool input.
-
-Once the key is available, make one minimal synthetic advisory smoke call (this
-prompt authorizes that API request), then report the selected option and any
-warnings without printing credentials. Do not install a capture companion,
-change command approvals, publish anything, or enable automatic Jev calls.
+Use Amp's native decision API; do not configure a separate TypeSafe key. Do not
+change approval rules or publish anything. Report any missing API capability.
 ```
 
-For a global User Plugins installation, explicitly request that scope instead;
-Amp should use its supported global plugin-repository workflow. A public GitHub
-checkout is a source repository, not an automatically installed Amp global plugin.
-Keep the selected revision so updates can be reviewed before replacing the two files.
+For a global User Plugins installation, request that scope instead. Use Amp's
+global plugin-repository workflow and obtain approval before publishing. New
+threads load a published update automatically; existing threads need a reload.
 
 ## Calling and interpreting `jev_evaluate`
 
-Supply one decision, why this call could change the plan, evidence, explicit
-priorities, a pre-advice `baseline` candidate ID (or `undecided`), 2–6 candidates,
-and zero to three independent requirements. Baseline and whyNow make the agent's
-intent explicit in the tool call; they are not sent to Jev. The plugin does not
-read repository files or thread messages automatically.
+Supply one decision, why this call could change the plan, evidence, priorities,
+a pre-advice `baseline` candidate ID (or `undecided`), alternatives, and requirements.
+Baseline and whyNow are visible in the tool call but are not sent to Jev.
 
 ```json
 {
   "decision": "Choose the report status update channel.",
   "whyNow": "Both paths have been measured; the choice changes dependencies.",
-  "evidence": "Polling updates within 30 seconds. Managed push updates within one second but adds a vendor bill and reconnection management.",
+  "evidence": "Polling updates within 30 seconds. Managed push updates within one second but adds a vendor bill.",
   "priorities": "The user accepts 30 seconds and prioritizes no new service.",
   "baseline": "poll",
   "candidates": [
@@ -104,68 +103,61 @@ read repository files or thread messages automatically.
 }
 ```
 
-The response maps `option_0`, `option_1`, etc. to your candidate IDs. Its
-`recommendation` includes a full distribution over those options plus `ask_user`,
-`investigate`, and `none`. Each optional requirement gets a separate
-supported/contradicted/unknown judgment for each candidate, in the same API request.
-The recommendation and checks are independent; they do not read each other's answers.
+The response maps `option_0`, `option_1`, etc. to candidate IDs. The recommendation
+includes probabilities for each option plus `ask_user`, `investigate`, and `none`.
+Each requirement gets independent supported/contradicted/unknown judgments for
+each candidate. Disagreement on the recommendation produces a warning.
 
-Use the distribution to compare alternatives, then inspect conflicts with your
-evidence. Do not average away a hard constraint or translate probability into
-"chance the implementation succeeds." Confidence describes distribution concentration;
-it does not establish correctness. Equivalent acceptable options can split probability.
-The tool flags disagreement on the recommended candidate; no warning is **not** proof
-that all constraints are met. Tests and human approval requirements still apply.
+No warning is not proof of correctness. Do not average away a hard constraint or
+translate probability into “chance the implementation succeeds.” Verify the action.
+Provider failures in `jev_evaluate` are errors, not fabricated advice.
 
-The default model is pinned to `jev-1.13.0`; the optional non-secret Amp setting
-`jev.model` overrides it. Each call makes one HTTPS request to
-`https://api.typesafe.ai/v1/systemone`, with a 20-second timeout and no automatic
-retry. API or validation failures are errors, never fabricated advice. Error bodies
-are not echoed.
+## Privacy and context limits
 
-## Privacy and public scope
+The explicit comparison tool sends only supplied decision context. The question
+hook reads conversational text from the latest 20 visible thread messages, including
+the compaction summary if present in that window. It excludes tool outputs and
+hidden thinking. Older requirements may be absent. It retains the human dialog
+rather than truncating a serialized request above 50,000 characters.
 
-The public plugin has **no capture library, outcome tool, local decision logs,
-background hooks, analytics, or reporting endpoint**. There is no hidden capture flag.
-Its only network operation is the requested TypeSafe evaluation. Tool calls and
-responses remain subject to Amp's normal transcript retention, and content sent to
-TypeSafe is subject to that provider's policies. "No plugin logs" does not mean
-"no transcript" or "no external data processing."
+Conversation and supplied evidence are sent through Amp's decision API to TypeSafe.
+Do not include secrets. There is no general secret scanner. Amp's transcript
+retention and provider processing policies still apply.
 
-Private development helpers and historical project corpora are excluded from Git.
-They are not needed to install, test, or run the public plugin.
+There are no plugin capture files, outcome records, analytics, or uploads. Hooks
+run on agent turns and question calls; there is no background polling. Private
+development helpers and historical project corpora are not part of this repository.
 
-## Development checks and explicit evals
+## Development
 
 ```sh
 bun install --frozen-lockfile
 bun run typecheck
 bun test
-# Optional: spends TypeSafe tokens; uses JEV_KEY or TYPESAFE_API_KEY from the environment.
-bun run eval
 ```
 
-The six public synthetic cases test priority changes, missing preferences, missing
-measurements, no-valid-candidate handling and acceptable ties. Reversed candidates
-are sensitivity checks, not independent accuracy samples. The eval runner uses the
-same request builder and response validation as the plugin. It explicitly writes
-timestamped results to ignored `evals/results/`; it is never imported by the plugin.
-These are development diagnostics, not calibration, a held-out benchmark or an
-Amp-alone comparison. A successful API call does not imply a correct judgment.
+Tests cover advice labeling, option mapping, routing and selection threshold
+boundaries, human fallback, investigation, context limits, provider failure, and
+requirement disagreement. Mocked probabilities verify control flow, not model quality.
 
-For an explicit live Amp-runtime smoke check, with `JEV_KEY` already available:
+`evals/host-smoke.ts` is an opt-in Amp runtime harness for one synthetic native
+comparison. It needs an accessible real thread ID and spends inference credits.
+It also requires a host that implements `ai.decide` for `plugins exec`:
 
 ```sh
 amp plugins exec ./evals/host-smoke.ts session.start \
-  --data '{"thread":{"id":"T-00000000-0000-0000-0000-000000000000"}}'
+  --data '{"thread":{"id":"YOUR_REAL_THREAD_ID"}}'
 ```
 
-The smoke harness exercises registration and the real tool handler. This CLI's
-`plugins exec` lacks `configuration.get`, so the harness substitutes empty settings.
-It verifies secret access and a real provider response, not installation, persistent
-settings integration or whether an autonomous agent chooses the tool appropriately.
+Require an explicit `smoke: passed` log; an empty CLI response is not success.
+This checks the comparison tool, not automatic question classification or calibration.
+The CLI tested during this migration reports `No handler for plugin request method:
+ai.decide` in `plugins exec`. On that CLI, test the installed `jev_evaluate` tool
+in a connected Amp thread instead. The native transport was smoke-tested that way
+with a synthetic no-new-paid-service choice; Jev selected the existing endpoint.
 
-TypeSafe references: [System One](https://docs.typesafe.ai/concepts/system-one),
-[Choice](https://docs.typesafe.ai/primitives/choice),
-[confidence](https://docs.typesafe.ai/confidence), and
-[agent skill](https://docs.typesafe.ai/agent-skill).
+The standalone `bun run eval` remains a **legacy direct-provider diagnostic**.
+It uses `JEV_KEY` or `TYPESAFE_API_KEY`, the pinned legacy model, and explicitly
+writes ignored results under `evals/results/`. It is not the installed plugin's
+transport and does not validate native routing. Its six synthetic cases and
+candidate reversals are development diagnostics, not a held-out benchmark.

@@ -1,14 +1,15 @@
 import { createHash } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { apiKey } from '../index'
 import { buildRequest, evaluate, MODEL, PROMPT_VERSION, VERSION, type Input, type Result } from '../decision'
 import { cases, parseCases, variantInput } from './cases'
 
+// Legacy direct-provider diagnostics only; the installed plugin uses Amp's native API.
 if (import.meta.main) {
   const extra = process.argv[2] ? parseCases(await Bun.file(process.argv[2]).json()) : []
   const corpus = parseCases([...cases, ...extra])
-  const key = apiKey()
+  const key = process.env.JEV_KEY?.trim() || process.env.TYPESAFE_API_KEY?.trim()
+  if (!key) throw new Error('Legacy direct-provider evals require JEV_KEY or TYPESAFE_API_KEY; the installed plugin does not.')
   // Never persist the configured token, including one accidentally included in fixtures.
   if (JSON.stringify(corpus).includes(key)) throw new Error('Eval corpus contains the API token.')
   const rows: ({ name: string; group: string; kind: string; after: boolean; reversed: boolean } & (
