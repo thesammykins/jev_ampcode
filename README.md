@@ -15,17 +15,30 @@ If my Jev plugin for Amp is useful to you, you can support its development.
   priorities, and up to three independent requirements.
 - An **`agent.start` hook** encourages the agent to resolve routine choices from
   available context, investigating technical facts instead of asking the user.
-- A **`tool.call` hook** intercepts `ask_user_choice`. Routine, reversible choices
+- An **experimental, default-off `tool.call` hook** can intercept `ask_user_choice`. Routine, reversible choices
   supported by user context can return clearly labeled model advice. Missing
   technical evidence redirects the agent to investigation. Missing consequential
   user-only context, explicit approvals, and explicit requests to personally answer
   questions retain the original human dialog.
 
-The built-in question tool is not removed. Its normal usage restrictions still
-apply. Uncertainty, provider/context errors, oversized or absent user context,
-and no suitable offered option also retain the dialog.
+By default the built-in question tool is untouched: no history read or inference
+occurs on its calls. Explicit `jev_evaluate` and agent guidance are the production
+path. To opt into experimental interception, set the Amp configuration key
+`"jev.experimentalQuestionRouting": true`. Only boolean `true` enables it; disabling
+it takes effect on the next call. This installation does not change that setting.
+The built-in tool's normal usage restrictions still apply.
+In experimental mode, uncertainty, provider/context errors, and oversized or absent user context
+retain the dialog. When routing permits an agent decision and every offered option
+is clearly unsuitable, the agent is redirected to repair the options instead.
 
-Automatic answers require both routing and selection probability **≥0.90**.
+Automatic answers require **≥0.90** total probability over options independently
+judged acceptable at **≥0.90** each. A joint Choice ranks options alongside asking
+the human, investigating, and repairing the options. A separate question-kind
+judgment retains the human question when approval probability exceeds **0.10**.
+A ranking tie does not itself require a human preference. A winning investigation
+outcome above **0.50** suggests read-only inspection within existing authority; it
+does not synthesize an answer or authorize a fix. This lower investigation threshold
+reflects a different consequence, not equivalent confidence in an automatic answer.
 These are initial thresholds, not calibrated safety guarantees. The model can
 misclassify questions. Synthesized answers contain `source: "decision_model"`
 and `userAnswered: false`; they are **never user consent**. Existing permission
@@ -56,7 +69,7 @@ this alongside another plugin registering `jev_evaluate`.
 
 Requires a current Amp release supporting `amp.ai.decide`, `thread.messages`, and
 the `tool.call` synthesized-result API. Development types are pinned in `package.json`.
-Only **`index.ts` and `decision.ts`** are needed at runtime; there are no runtime
+Only **`index.ts`, `decision.ts`, and `history.ts`** are needed at runtime; there are no runtime
 package dependencies. A GitHub checkout is source, not an automatically installed
 global Amp plugin.
 
@@ -68,11 +81,11 @@ for this project only. Load building-plugins and inspect the source and current
 plugin API. Clone outside .amp/plugins, record the reviewed revision, and run
 bun install --frozen-lockfile, bun run typecheck, and bun test.
 
-Copy only index.ts and decision.ts into .amp/plugins/jev/, preserving imports.
+Copy only index.ts, decision.ts, and history.ts into .amp/plugins/jev/, preserving imports.
 Do not overwrite an existing installation without showing me what differs.
 Do not copy tests, evals, or private development helpers. Reload the plugin using
 Amp's supported mechanism. Confirm jev_evaluate is its only registered tool and
-that its hooks implement automatic routine-question routing with human fallback.
+that question interception is disabled by default. Do not enable experimental routing.
 
 Use Amp's native decision API; do not configure a separate TypeSafe key. Do not
 change approval rules or publish anything. Report any missing API capability.
@@ -87,6 +100,8 @@ threads load a published update automatically; existing threads need a reload.
 Supply one decision, why this call could change the plan, evidence, priorities,
 a pre-advice `baseline` candidate ID (or `undecided`), alternatives, and requirements.
 Baseline and whyNow are visible in the tool call but are not sent to Jev.
+Within evidence, distinguish user constraints, source-labelled inspected observations,
+assumptions and missing facts. Technical observations do not establish permission.
 
 ```json
 {
@@ -114,11 +129,66 @@ Provider failures in `jev_evaluate` are errors, not fabricated advice.
 
 ## Privacy and context limits
 
-The explicit comparison tool sends only supplied decision context. The question
-hook reads conversational text from the latest 20 visible thread messages, including
-the compaction summary if present in that window. It excludes tool outputs and
-hidden thinking. Older requirements may be absent. It retains the human dialog
-rather than truncating a serialized request above 50,000 characters.
+The explicit comparison tool sends only supplied decision context. The experimental question
+hook uses Amp's `thread.messages({ full: true })` to read original user-role text
+across history, including before compaction, alongside the latest 20 original
+conversation messages. User history is paginated from the start; assistant chatter
+does not evict earlier user instructions. Tool outputs and hidden thinking are excluded.
+This sends more historical user text than the previous last-20-message implementation.
+Both native and export paths take the latest 20 original messages before filtering
+text; tool-only messages can therefore evict recent observations. User-role text
+is not authenticated human authorship: plugins can append user messages. Neither
+history nor the model's question-kind judgment is an authorization boundary.
+Keep real approvals outside synthesis. Amp documents `requireHuman` for plugin UI
+dialogs, not for `ask_user_choice` inputs. User text can contain secrets; there is
+no automatic redaction guarantee.
+
+The hook retains the human dialog if history is empty, unavailable, exceeds 50
+pages of 20 user messages, or produces a serialized state above 50,000 characters.
+It never substitutes a partial history or a generated summary for missing originals.
+Full history availability is a prerequisite for automatic question routing, not for
+the explicit comparison tool. If the native history API fails or returns empty
+history, the hook uses the documented authenticated `amp threads export` command.
+It validates the thread ID and extracts conversation text only; export metadata,
+environment data, tool results and thinking are never included in the decision request.
+The plugin does not write the export to disk. Export text over 16 × 1024 × 1024
+UTF-16 code units is rejected after capture; this is not a streaming memory limit.
+The CLI must be available and
+authenticated; a failure retains the dialog. This fallback was exercised in a
+connected host where native full-history reads returned empty arrays.
+
+This local candidate is **not release-qualified**. The regression targets reported
+in [iteration 3](evals/native/ITERATION-3.md) are small hand-authored samples, not
+population reliability estimates. A subsequent frozen [context diagnosis](evals/context/RESULTS.md)
+found missing inspection evidence, position-sensitive candidate references, and an
+ambiguous evaluation label. Complete evidence helped, but structured packets did
+not consistently outperform ordinary text. Previous failures and original labels
+remain preserved; no thresholds were lowered during this diagnosis.
+
+After review, the default-off interception candidate matched all 13 preferred
+selections in a fresh [explicit-evidence diagnostic](evals/evidence/RESULTS.md),
+including counterfactual evidence and reversed options. This small tool-only run
+does not establish release readiness, calibration or end-to-end task improvement.
+
+### Native API and model gotchas
+
+- Full-history reads returned empty arrays on the tested host; CLI export is the
+  tested fallback, not a guarantee that every Amp host supplies complete history.
+  Missing CLI/authentication or excessive context leaves the human question intact.
+- Tool results and thinking are intentionally excluded. Summarize inspected technical
+  evidence in ordinary conversation, or supply it explicitly to `jev_evaluate`.
+  Do not re-ask an unchanged question hoping for higher confidence.
+- Generic interchangeable options and recently revoked personal-answer restrictions
+  still sometimes cause unnecessary questions. No automatic retry is performed.
+- Independent judgments can be wrong or disagree. A five-option evaluation wrongly
+  rated Python suitable for a JavaScript-only requirement, though the joint Choice
+  selected JavaScript correctly. Treat checks as advice and verify the chosen action;
+  neither option checks nor the question-kind classifier enforce authorization.
+- The observed native alias returns Jev 1.13.0. A provider preview release does not
+  imply Amp exposes that version or a version-selection parameter. Model changes
+  require rerunning the evals; do not assume scores transfer to a different model.
+- Real host synthesis and inert human fallback were exercised, but actual human
+  dialog rendering/answer delivery and other host versions remain untested.
 
 Conversation and supplied evidence are sent through Amp's decision API to TypeSafe.
 Do not include secrets. There is no general secret scanner. Amp's transcript
@@ -136,9 +206,10 @@ bun run typecheck
 bun test
 ```
 
-Tests cover advice labeling, option mapping, routing and selection threshold
+Tests cover advice labeling, option mapping, routing and acceptability threshold
 boundaries, human fallback, investigation, context limits, provider failure, and
-requirement disagreement. Mocked probabilities verify control flow, not model quality.
+requirement disagreement, including full-history pagination and export fallback.
+Mocked probabilities verify control flow, not model quality.
 
 `evals/host-smoke.ts` is an opt-in Amp runtime harness for one synthetic native
 comparison. It needs an accessible real thread ID and spends inference credits.
